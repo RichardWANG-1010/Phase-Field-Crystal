@@ -42,6 +42,9 @@ Run standard PFC simulation
 run_elastic.py
 Run elastic constant calculation
 
+config.py
+User interface menu
+
 ## Example
 
 Run a standard PFC simulation:
@@ -56,6 +59,6 @@ python run_elastic.py
 
 Jinpeng Wang
 
-Department of Mechanical Engineering
+Department of Material Engineering
 
 Mitacs Intern @ McMaster University
