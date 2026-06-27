@@ -1,16 +1,61 @@
-# Phase Field Crystal Simulation
+# Phase-Field-Crystal
 
-Pure material PFC solver.
+A modular 2D Phase Field Crystal (PFC) simulation framework written in Python.
 
-Implemented:
+## Features
 
-- Spectral PFC solver
-- Defect analysis
-- Voronoi analysis
-- Psi6 analysis
-- Grain boundary detection
-- Elastic energy curve
-- Stress-strain curve
+* Spectral semi-implicit PFC solver
+* Hexagonal lattice
+* Square lattice
+* Triangular lattice
+* Defect density analysis
+* Voronoi tessellation
+* Psi6 orientational order parameter
+* Grain boundary detection
+* Structure factor analysis
+* Elastic energy calculation
+* Stress-strain curve calculation
 
-Author:
-WANG Jinpeng
+## Project Structure
+
+pfc_base.py
+Core numerical infrastructure
+
+pfc_pure.py
+Pure material PFC solver
+
+pfc_analysis.py
+Defect and microstructure analysis
+
+pfc_plot.py
+Visualization tools
+
+pfc_elastic.py
+Elasticity calculations
+
+pfc_io.py
+Video recording and output
+
+run_pure.py
+Run standard PFC simulation
+
+run_elastic.py
+Run elastic constant calculation
+
+## Example
+
+Run a standard PFC simulation:
+
+python run_pure.py
+
+Run elastic analysis:
+
+python run_elastic.py
+
+## Author
+
+Jinpeng Wang
+
+Department of Mechanical Engineering
+
+Mitacs Intern @ McMaster University
