@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+
+*.mp4
+*.avi
+
+results/videos/*
+results/data/*
+
+.vscode/
+
+*.npy
+*.npz
