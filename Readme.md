@@ -10,7 +10,7 @@ A modular 2D Phase Field Crystal (PFC) simulation framework written in Python.
 * Triangular lattice
 * Defect density analysis
 * Voronoi tessellation
-* Psi6 orientational order parameter
+* ψ6 orientational order parameter
 * Grain boundary detection
 * Structure factor analysis
 * Elastic energy calculation
