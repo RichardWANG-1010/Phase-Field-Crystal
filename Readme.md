@@ -344,11 +344,7 @@ result/
 
 ## 📚 References / 参考文献
 
-1. Elder, K. R., & Grant, M. (2004). Modeling elastic and plastic deformations in nonequilibrium processing using phase field crystals. *Physical Review E*, 70(5), 051605.
-
-2. Provatas, N., & Elder, K. (2010). *Phase-Field Methods in Materials Science and Engineering*. Wiley-VCH.
-
-3. Berry, J., Elder, K. R., & Grant, M. (2008). Phase-field crystal modeling of eutectic solidification. *Physical Review Letters*, 100(4), 045705.
+1. Provatas, N., & Elder, K. (2010). *Phase-Field Methods in Materials Science and Engineering*. Wiley-VCH.
 
 ---
 
