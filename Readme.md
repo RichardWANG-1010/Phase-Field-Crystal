@@ -334,7 +334,7 @@ result/
 
 ## Author / 作者
 
-**Jinpeng Wang (王锦鹏)**
+**Jinpeng Wang (王金鹏)**
 
 - Department of Material Engineering / 材料工程系
 - The Hong Kong Polytechnic University / 香港理工大学

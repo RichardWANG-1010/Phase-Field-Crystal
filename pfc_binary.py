@@ -6,7 +6,19 @@
 #   - phi (n): 总密度场, 守恒演化 (mass conservation)
 #   - c    : 溶质浓度场, Cahn-Hilliard守恒扩散
 #
+# Dual conserved-field coupled dynamics:
+#   - phi (n): total density field, conserved evolution (mass conservation)
+#   - c    : solute concentration field, Cahn-Hilliard conserved diffusion
+#
 # 自由能泛函:
+#   F = F_PFC[phi] + F_CH[c] + F_coupling[phi, c]
+#
+#   F_PFC      = 0.5*phi * L(k) * phi + 0.25*phi^4
+#   F_CH       = 0.5*c*(r_c - nabla^2)*c + 0.25*u_c*c^4
+#              = 0.5*r_c*c^2 + 0.5*|nabla c|^2 + 0.25*u_c*c^4
+#   F_coupling = alpha * c * phi^2 + beta * c * phi
+#
+# Free energy functional:
 #   F = F_PFC[phi] + F_CH[c] + F_coupling[phi, c]
 #
 #   F_PFC      = 0.5*phi * L(k) * phi + 0.25*phi^4
@@ -18,7 +30,15 @@
 #   delta F / delta phi = L(k)*phi + phi^3 + 2*alpha*c*phi + beta*c
 #   delta F / delta c   = (r_c - nabla^2)*c + u_c*c^3 + alpha*phi^2 + beta*phi
 #
+# Variational derivatives:
+#   delta F / delta phi = L(k)*phi + phi^3 + 2*alpha*c*phi + beta*c
+#   delta F / delta c   = (r_c - nabla^2)*c + u_c*c^3 + alpha*phi^2 + beta*phi
+#
 # 演化方程 (守恒动力学):
+#   d phi / dt = M_phi * nabla^2 * (delta F / delta phi)
+#   d c   / dt = M_c   * nabla^2 * (delta F / delta c)
+#
+# Evolution equations (conserved dynamics):
 #   d phi / dt = M_phi * nabla^2 * (delta F / delta phi)
 #   d c   / dt = M_c   * nabla^2 * (delta F / delta c)
 #
@@ -28,6 +48,13 @@
 #
 #   其中 N_phi = phi^3 + 2*alpha*c*phi + beta*c
 #        N_c   = u_c*c^3 + alpha*phi^2 + beta*phi
+#
+# Fourier-domain semi-implicit Euler discretization:
+#   phi_hat^{n+1} = (phi_hat^n - dt*M_phi*k2*N_phi_hat) / (1 + dt*M_phi*k2*L(k))
+#   c_hat^{n+1}   = (c_hat^n   - dt*M_c  *k2*N_c_hat)   / (1 + dt*M_c  *k2*(r_c+k2))
+#
+#   where N_phi = phi^3 + 2*alpha*c*phi + beta*c
+#         N_c   = u_c*c^3 + alpha*phi^2 + beta*phi
 #
 # 晶格类型支持: hexagon (六角) / square (正方) / triangle (三角)
 # Lattice support: hexagon / square / triangle
@@ -51,6 +78,12 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
     新增双场耦合:
     - phi: 总密度场 (对应纯材料的phi)
     - c  : 溶质浓度场 (0 <= c <= 1, 守恒量)
+
+    Inherits from PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic,
+    maintains fully consistent API interface with the pure material solver PurePFCSolver.
+    New dual-field coupling:
+    - phi: total density field (corresponds to phi in pure material)
+    - c  : solute concentration field (0 <= c <= 1, conserved quantity)
     """
     def __init__(
         self,
@@ -82,31 +115,40 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
             T=T,
         )
         # --- PFC密度场参数 ---
+        # --- PFC density field parameters ---
         self.r = float(r)
         self.M_phi = float(M_phi)
         self.phi0 = float(phi0)
         # --- 浓度场参数 ---
+        # --- Concentration field parameters ---
         self.M_c = float(M_c)
         self.c0 = float(c0)
         self.r_c = float(r_c)
         self.u_c = float(u_c)
         # --- 耦合参数 ---
+        # --- Coupling parameters ---
         self.alpha = float(alpha)
         self.beta = float(beta)
         # --- 初始条件 ---
+        # --- Initial conditions ---
         self.noise_amp = float(noise_amp)
         self.lattice_type = lattice_type
         # --- 浓度场日志 (Concentration field logs) ---
         self.c_log = []
         self.c_mass_log = []
-        self.c_std_log = []  # 浓度标准差，表征相分离程度
+        # 浓度标准差，表征相分离程度
+        # Concentration standard deviation, characterizes phase separation degree
+        self.c_std_log = []
         # --- 输出目录 ---
+        # --- Output directory ---
         self.result_dir = "result"
         os.makedirs(self.result_dir, exist_ok=True)
         print(f"  Output directory: {os.path.abspath(self.result_dir)}")
         # --- IO初始化 ---
+        # --- IO initialization ---
         self.initialize_io()
         # --- 初始化双场 ---
+        # --- Initialize dual fields ---
         self._initialize_field()
 
     def _initialize_field(self):
@@ -116,15 +158,19 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
         both with Gaussian noise and mean correction
         """
         # 标准正态分布噪声场
+        # Standard normal distribution noise field
         noise_phi = self.noise_amp * np.random.randn(self.N, self.N)
         noise_c = self.noise_amp * np.random.randn(self.N, self.N)
         # 基础值叠加噪声
+        # Base value plus noise
         self.phi = self.phi0 + noise_phi
         self.c = self.c0 + noise_c
         # 修正均值保证守恒
+        # Correct mean to ensure conservation
         self.phi -= (np.mean(self.phi) - self.phi0)
         self.c -= (np.mean(self.c) - self.c0)
         # 浓度物理约束: 0 <= c <= 1
+        # Concentration physical constraint: 0 <= c <= 1
         self.c = np.clip(self.c, 0.0, 1.0)
         print(f"  Initial mean phi = {np.mean(self.phi):.6f}")
         print(f"  Initial mean c   = {np.mean(self.c):.6f}")
@@ -140,43 +186,55 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
         phi = self.phi
         c = self.c
         # 傅里叶变换到频域
+        # Fourier transform to frequency domain
         phi_hat = fft.fft2(phi)
         c_hat = fft.fft2(c)
         # === 非线性项 (实空间计算) ===
+        # === Nonlinear terms (computed in real space) ===
         # N_phi = phi^3 + 2*alpha*c*phi + beta*c
         nonlinear_phi = phi ** 3 + 2.0 * self.alpha * c * phi + self.beta * c
         # N_c = u_c*c^3 + alpha*phi^2 + beta*phi
         nonlinear_c = self.u_c * (c ** 3) + self.alpha * (phi ** 2) + self.beta * phi
         # 非线性项变换到频域
+        # Transform nonlinear terms to frequency domain
         nonlinear_phi_hat = fft.fft2(nonlinear_phi)
         nonlinear_c_hat = fft.fft2(nonlinear_c)
         # === 按晶格类型计算色散算子 L(k) ===
+        # === Compute dispersion operator L(k) by lattice type ===
         if self.lattice_type == "hexagon":
             # 六角晶格: L(k) = (1 - k^2)^2 + r
+            # Hexagonal lattice: L(k) = (1 - k^2)^2 + r
             l_k = (1.0 - self.k2) ** 2 + self.r
         elif self.lattice_type == "square":
             # 正方晶格: L(k) = (1-kx^2)^2 * (1-ky^2)^2 + r
+            # Square lattice: L(k) = (1-kx^2)^2 * (1-ky^2)^2 + r
             term_x = (1.0 - self.kx ** 2) ** 2
             term_y = (1.0 - self.ky ** 2) ** 2
             l_k = term_x * term_y + self.r
         elif self.lattice_type == "triangle":
             # 三角晶格: L(k) = (1 - kx^2 - kx*ky + ky^2)^2 + r
+            # Triangular lattice: L(k) = (1 - kx^2 - kx*ky + ky^2)^2 + r
             tri_base = 1.0 - self.kx ** 2 - self.kx * self.ky + self.ky ** 2
             l_k = tri_base ** 2 + self.r
         # === 密度场 phi 半隐式更新 ===
+        # === Semi-implicit update of density field phi ===
         numerator_phi = phi_hat - self.dt * self.M_phi * self.k2 * nonlinear_phi_hat
         denominator_phi = 1.0 + self.dt * self.M_phi * self.k2 * l_k
         phi_hat_new = numerator_phi / denominator_phi
         self.phi = np.real(fft.ifft2(phi_hat_new))
         # 质量守恒修正
+        # Mass conservation correction
         self.phi -= (np.mean(self.phi) - self.phi0)
         # === 浓度场 c 半隐式更新 (Cahn-Hilliard) ===
+        # === Semi-implicit update of concentration field c (Cahn-Hilliard) ===
         # 分母中的 (r_c + k2) 来自 Cahn-Hilliard 梯度项
+        # The (r_c + k2) in the denominator comes from the Cahn-Hilliard gradient term
         numerator_c = c_hat - self.dt * self.M_c * self.k2 * nonlinear_c_hat
         denominator_c = 1.0 + self.dt * self.M_c * self.k2 * (self.r_c + self.k2)
         c_hat_new = numerator_c / denominator_c
         self.c = np.real(fft.ifft2(c_hat_new))
         # 质量守恒修正 + 物理约束
+        # Mass conservation correction + physical constraint
         self.c -= (np.mean(self.c) - self.c0)
         self.c = np.clip(self.c, 0.0, 1.0)
 
@@ -195,6 +253,7 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
         phi_hat = fft.fft2(phi)
         c_hat = fft.fft2(c)
         # --- 按晶格类型计算 L(k) ---
+        # --- Compute L(k) by lattice type ---
         if self.lattice_type == "hexagon":
             l_k = (1.0 - self.k2) ** 2 + self.r
         elif self.lattice_type == "square":
@@ -205,15 +264,19 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
             tri_base = 1.0 - self.kx ** 2 - self.kx * self.ky + self.ky ** 2
             l_k = tri_base ** 2 + self.r
         # === F_PFC: 标准PFC自由能 ===
+        # === F_PFC: standard PFC free energy ===
         linear_phi = np.sum(np.real(np.conj(phi_hat) * l_k * phi_hat)) / (self.N ** 2)
         nonlinear_phi = np.mean(phi ** 4)
         E_pfc = 0.5 * linear_phi + 0.25 * nonlinear_phi
         # === F_CH: Cahn-Hilliard混合自由能 ===
+        # === F_CH: Cahn-Hilliard mixing free energy ===
         # 0.5 * c * (r_c - nabla^2) * c 在频域: 0.5 * |c_hat|^2 * (r_c + k2)
+        # 0.5 * c * (r_c - nabla^2) * c in frequency domain: 0.5 * |c_hat|^2 * (r_c + k2)
         linear_c = np.sum(np.real(np.conj(c_hat) * (self.r_c + self.k2) * c_hat)) / (self.N ** 2)
         nonlinear_c = np.mean(c ** 4)
         E_ch = 0.5 * linear_c + 0.25 * self.u_c * nonlinear_c
         # === F_coupling: 双场耦合自由能 ===
+        # === F_coupling: dual-field coupling free energy ===
         E_couple = np.mean(self.alpha * c * phi ** 2 + self.beta * c * phi)
         return E_pfc + E_ch + E_couple
 
@@ -225,7 +288,7 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
         基于密度场phi计算静态结构因子 (与纯材料分析一致)
         Calculate static structure factor from density field phi
         Returns:
-            S (ndarray): 静态结构因子 S(k)
+            S (ndarray): 静态结构因子 S(k) (static structure factor S(k))
         """
         phi_fluct = self.phi - np.mean(self.phi)
         phi_hat = np.fft.fftshift(np.fft.fft2(phi_fluct))
@@ -237,7 +300,7 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
         基于浓度场c计算静态结构因子
         Calculate static structure factor from concentration field c
         Returns:
-            S_c (ndarray): 浓度场结构因子
+            S_c (ndarray): 浓度场结构因子 (concentration field structure factor)
         """
         c_fluct = self.c - np.mean(self.c)
         c_hat = np.fft.fftshift(np.fft.fft2(c_fluct))
@@ -258,9 +321,11 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
         self.c_mass_log.append(np.mean(self.c))
         self.c_std_log.append(np.std(self.c))
         # 结构因子峰值
+        # Structure factor peak
         S = self.structure_factor()
         self.structure_peak_log.append(np.max(S))
         # 缺陷分析 (仅在后期执行)
+        # Defect analysis (only executed in later stages)
         if step > 1500:
             defect_density, grain_size, _, _ = self.analyze_defects()
             if not np.isnan(defect_density):
@@ -288,6 +353,7 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
     def run(self, sample_interval=10):
         """
         主模拟运行循环
+        Main simulation run loop
         Args:
             sample_interval (int): 采样间隔步数 (sampling interval steps)
         """
@@ -305,9 +371,11 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
                 self.print_status(step, E)
                 self.capture_frame()
         # 尝试合成视频，失败时不中断
+        # Try to synthesize video, do not interrupt on failure
         try:
             self.frames_to_video()
             # 如果视频生成成功，移动到 result 目录
+            # If video generation is successful, move to result directory
             if os.path.exists("pfc_simulation.mp4"):
                 import shutil
                 shutil.move("pfc_simulation.mp4", os.path.join(self.result_dir, "pfc_simulation.mp4"))
@@ -330,6 +398,7 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
             return
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
         # --- 密度场 phi ---
+        # --- Density field phi ---
         im0 = axes[0].imshow(
             self.phi,
             cmap="coolwarm",
@@ -342,6 +411,7 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
         )
         plt.colorbar(im0, ax=axes[0], shrink=0.8)
         # --- 浓度场 c ---
+        # --- Concentration field c ---
         im1 = axes[1].imshow(
             self.c,
             cmap="RdYlBu_r",
@@ -370,22 +440,30 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
         print("  Binary Alloy Post-Processing")
         print("=" * 60 + "\n")
         # 切换到 result 目录，让继承来的 PFCPlot 方法也把图存到这里
+        # Switch to result directory so that inherited PFCPlot methods also save figures here
         old_cwd = os.getcwd()
         os.chdir(self.result_dir)
         # --- 1. 能量演化曲线 ---
+        # --- 1. Energy evolution curve ---
         self.plot_energy()
         # --- 2. 最终密度场 phi ---
+        # --- 2. Final density field phi ---
         self.plot_field()
         # --- 3. 最终浓度场 c ---
+        # --- 3. Final concentration field c ---
         self._plot_concentration_field()
         # --- 4. phi + c 叠加场 ---
+        # --- 4. phi + c overlay field ---
         self._plot_overlay_field()
         # --- 5. 浓度场结构因子 ---
+        # --- 5. Concentration field structure factor ---
         self._plot_structure_factor_c()
         # --- 6-7. 结构因子 & Voronoi分析 ---
+        # --- 6-7. Structure factor & Voronoi analysis ---
         self.plot_structure_factor()
         self.plot_voronoi()
         # --- 8-12. 缺陷与微观结构分析 ---
+        # --- 8-12. Defect and microstructure analysis ---
         self.defect_statistics()
         self.plot_defects()
         self.plot_defect_density()
@@ -393,12 +471,15 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
         self.plot_structure_peak()
         self.plot_detected_atoms()
         # --- 13. 浓度演化曲线 ---
+        # --- 13. Concentration evolution curve ---
         self._plot_concentration_evolution()
         # 切回原来的工作目录
+        # Switch back to original working directory
         os.chdir(old_cwd)
 
     # ============================================================
     # 二元合金特有可视化方法
+    # Binary alloy specific visualization methods
     # ============================================================
     def _plot_concentration_field(self):
         """
@@ -426,9 +507,11 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
         """
         fig, ax = plt.subplots(figsize=(6, 6))
         # phi作为灰度底图
+        # phi as grayscale background
         phi_bg = (self.phi - self.phi.min()) / (self.phi.max() - self.phi.min() + 1e-10)
         ax.imshow(phi_bg, cmap="gray", origin="lower", alpha=0.5)
         # c作为颜色叠加 (仅在c偏离平均值区域显示)
+        # c as color overlay (only shown where c deviates from the average)
         c_overlay = self.c.copy()
         ax.imshow(c_overlay, cmap="RdYlBu_r", origin="lower", alpha=0.6, vmin=0.0, vmax=1.0)
         ax.set_title("Density φ (grayscale) + Concentration c (color)")
@@ -463,6 +546,7 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
         """
         fig, axes = plt.subplots(1, 2, figsize=(12, 4))
         # 左图: 浓度均值演化 (守恒，应为平线)
+        # Left: concentration mean evolution (conserved, should be flat)
         axes[0].plot(self.c_mass_log, "r-o", markersize=3, linewidth=1)
         axes[0].axhline(y=self.c0, color="gray", linestyle="--", label=f"target c0={self.c0}")
         axes[0].set_xlabel("Sample")
@@ -471,6 +555,7 @@ class BinaryPFCSolver(PFCBase, PFCAnalysis, PFCPlot, PFCIO, PFCElastic):
         axes[0].legend()
         axes[0].grid(True)
         # 右图: 浓度标准差演化 (表征相分离/偏析程度)
+        # Right: concentration std dev evolution (characterizes phase separation/segregation degree)
         axes[1].plot(self.c_std_log, "b-o", markersize=3, linewidth=1)
         axes[1].set_xlabel("Sample")
         axes[1].set_ylabel("Concentration Std Dev")
