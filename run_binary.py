@@ -11,10 +11,8 @@
 #   1. 快速模式: 直接运行预配置参数 (默认)
 #   2. 交互模式: 通过命令行交互式输入参数
 # ============================================================
-
 import sys
 import argparse
-
 from pfc_binary import BinaryPFCSolver
 
 
@@ -49,7 +47,6 @@ def select_mode_menu():
     print("\n  Tip: Use command line args to skip this menu:")
     print("       --mode <quick|high-res|phase-separation> | --interactive")
     print("=" * 60)
-
     while True:
         choice = input("\n  Enter your choice (1/2/3/4): ").strip()
         if choice == "1":
@@ -76,7 +73,6 @@ def interactive_mode():
     print("\n" + "=" * 60)
     print("  Binary Alloy PFC - Interactive Parameter Setup")
     print("=" * 60 + "\n")
-
     # --- 晶格类型选择 ---
     print("Lattice Type:")
     print("  1 - hexagon   (六角晶格, Standard PFC)")
@@ -95,37 +91,31 @@ def interactive_mode():
             break
         else:
             print("    Invalid choice, please enter 1, 2, or 3")
-
     # --- 基础参数 ---
     print("\n--- Grid & Time Parameters ---")
-    N = get_param_with_default("Grid size N", 256, int)
+    N = get_param_with_default("Grid size N", 512, int)
     L = get_param_with_default("Domain size L", 128.0, float)
     dt = get_param_with_default("Time step dt", 0.05, float)
-    T = get_param_with_default("Total simulation time T", 2000.0, float)
-
+    T = get_param_with_default("Total simulation time T", 1000.0, float)
     # --- 密度场参数 ---
     print("\n--- Density Field Parameters ---")
     r = get_param_with_default("PFC parameter r", -0.25, float)
     M_phi = get_param_with_default("Mobility M_phi", 1.0, float)
     phi0 = get_param_with_default("Average density phi0", -0.25, float)
-
     # --- 浓度场参数 ---
     print("\n--- Concentration Field Parameters ---")
     M_c = get_param_with_default("Mobility M_c", 0.1, float)
     c0 = get_param_with_default("Average concentration c0", 0.3, float)
     r_c = get_param_with_default("CH parameter r_c", -0.5, float)
     u_c = get_param_with_default("CH parameter u_c", 1.0, float)
-
     # --- 耦合参数 ---
     print("\n--- Coupling Parameters ---")
     print("  (alpha: segregation strength, beta: direct coupling)")
     alpha = get_param_with_default("Coupling alpha", 0.1, float)
     beta = get_param_with_default("Coupling beta", 0.0, float)
-
     # --- 初始条件 ---
     print("\n--- Initial Condition ---")
     noise_amp = get_param_with_default("Noise amplitude", 0.01, float)
-
     params = {
         "N": N,
         "L": L,
@@ -143,19 +133,16 @@ def interactive_mode():
         "noise_amp": noise_amp,
         "lattice_type": lattice,
     }
-
     # 参数确认
     print("\n" + "-" * 60)
     print("  Parameter Summary:")
     for k, v in params.items():
         print(f"    {k:15s} = {v}")
     print("-" * 60)
-
     confirm = input("\n  Confirm and start simulation? (y/n): ").strip().lower()
     if confirm != "y":
         print("  Simulation cancelled.")
         sys.exit(0)
-
     return params
 
 
@@ -163,32 +150,27 @@ def quick_mode():
     """
     快速模式: 使用预配置的标准参数，优化运行速度
     Quick mode: pre-configured parameters optimized for speed
-
-    该配置适用于快速预览溶质在晶界处的偏析行为。
-    总步数约 8,000 步 (T=800, dt=0.1)，可在几分钟内完成。
+    N=512, L=128: 每个像素代表 0.25 物理单位，晶格周期约 6.28，
+    对应约 25 个像素/周期，画面细腻无锯齿感。
     """
     params = {
-        # 网格参数 (中等分辨率)
-        "N": 256,
+        # 网格参数 (512x512，像素感大幅降低)
+        "N": 512,
         "L": 128.0,
-        "dt": 0.1,      # 增大时间步长，减少总步数
-        "T": 800.0,     # 缩短总时间，快速预览
-
+        "dt": 0.05,      # 空间分辨率提高后，dt适当减小保证稳定性
+        "T": 1000.0,     # 总时间稍延长，让高分辨率结构充分演化
         # 密度场参数 (r=-0.25产生多晶结构)
         "r": -0.25,
         "M_phi": 1.0,
         "phi0": -0.25,
-
         # 浓度场参数 (M_c < M_phi使浓度扩散慢于密度场)
         "M_c": 0.05,
         "c0": 0.3,
         "r_c": -0.3,
         "u_c": 1.0,
-
         # 耦合参数 (alpha主导溶质在密度峰/谷的偏析)
         "alpha": -0.15,
         "beta": 0.0,
-
         # 初始条件
         "noise_amp": 0.01,
         "lattice_type": "hexagon",
@@ -202,7 +184,7 @@ def high_resolution_mode():
     High-resolution mode for fine microstructure analysis
     """
     params = {
-        "N": 512,
+        "N": 1024,
         "L": 256.0,
         "dt": 0.02,
         "T": 5000.0,
@@ -227,7 +209,7 @@ def phase_separation_mode():
     Phase separation mode for spinodal decomposition observation
     """
     params = {
-        "N": 256,
+        "N": 512,
         "L": 128.0,
         "dt": 0.05,
         "T": 4000.0,
@@ -258,24 +240,18 @@ def main():
 Examples:
   # 启动模式选择菜单 (默认，无参数时)
   python run_binary.py
-
   # 交互式参数配置
   python run_binary.py --interactive
-
-  # 快速模式 (默认关闭录像，2-3分钟完成)
+  # 快速模式 (默认关闭录像，N=512)
   python run_binary.py --mode quick
-
   # 快速模式 + 录像 (更慢)
   python run_binary.py --mode quick --video
-
   # 高分辨率模式
   python run_binary.py --mode high-res
-
   # 相分离模式
   python run_binary.py --mode phase-separation
         """,
     )
-
     parser.add_argument(
         "--interactive", "-i",
         action="store_true",
@@ -292,19 +268,16 @@ Examples:
         action="store_true",
         help="Enable video recording (slow, off by default)",
     )
-
     args = parser.parse_args()
-
     # 检查用户是否通过命令行显式指定了 --mode 参数
     mode_explicitly_set = any(arg in sys.argv for arg in ["--mode", "-m"])
-
     # --- 选择参数模式 ---
     if args.interactive:
         params = interactive_mode()
     elif mode_explicitly_set:
         # 用户显式指定了模式，直接执行对应模式
         if args.mode == "quick":
-            print("\n  [Quick Mode] Using pre-configured standard parameters")
+            print("\n  [Quick Mode] N=512, L=128 (fine grid)")
             params = quick_mode()
         elif args.mode == "high-res":
             print("\n  [High-Resolution Mode] Using fine-grid parameters")
@@ -315,18 +288,15 @@ Examples:
     else:
         # 没有显式指定任何模式，显示交互式选择菜单
         params = select_mode_menu()
-
     # --- 创建求解器 ---
     print("\n  Creating BinaryPFCSolver...")
     solver = BinaryPFCSolver(**params)
-
     # 录像设置：默认关闭，需用 --video 手动开启
     solver.record_video = args.video
     if args.video:
         print("  [Video ON] Recording will be enabled (slower)")
     else:
         print("  [Video OFF] Use --video to enable recording")
-
     # --- 运行模拟 ---
     # 快速模式使用更大的采样间隔以减少绘图开销
     if args.mode == "quick" and not args.interactive:
@@ -335,17 +305,14 @@ Examples:
     else:
         sample_interval = 10
     solver.run(sample_interval=sample_interval)
-
     # --- 后处理 ---
     solver.postprocess()
     solver.analyze_psi6()
-
     # --- 额外分析 ---
     print("\n" + "=" * 60)
     print("  Additional Binary Alloy Analysis")
     print("=" * 60)
     solver.plot_coupling_energy()
-
     print("\n  All done!")
 
 
