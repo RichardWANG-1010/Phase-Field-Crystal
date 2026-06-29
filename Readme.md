@@ -633,7 +633,7 @@ result/
 
 ## Author & Citation
 
-**Jinpeng Wang (王金鹏)**
+**Jinpeng Wang (王锦鹏)**
 
 - Department of Material Engineering, The Hong Kong Polytechnic University
 - Mitacs Intern @ McMaster University
