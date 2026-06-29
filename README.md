@@ -635,7 +635,7 @@ result/
 
 **Jinpeng Wang (王锦鹏)**
 
-- Department of Material Engineering, The Hong Kong Polytechnic University
+- Department of Aviation Engineering, The Hong Kong Polytechnic University
 - Mitacs Intern @ McMaster University
 
 If you use this framework in your research, please cite appropriately.
