@@ -633,9 +633,9 @@ result/
 
 ## Author & Citation
 
-**Jinpeng Wang (王锦鹏)**
+**Jinpeng Wang (王金鹏)**
 
-- Department of Aviation Engineering, The Hong Kong Polytechnic University
+- Department of Material Engineering, The Hong Kong Polytechnic University
 - Mitacs Intern @ McMaster University
 
 If you use this framework in your research, please cite appropriately.
