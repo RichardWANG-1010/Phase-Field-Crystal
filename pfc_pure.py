@@ -36,6 +36,7 @@ from pfc_analysis import PFCAnalysis  # Microstructure analysis / 微观结构�
 from pfc_plot import PFCPlot          # Visualization tools / 可视化工具
 from pfc_io import PFCIO              # Video recording / 视频录制
 from pfc_elastic import PFCElastic    # Elasticity calculations / 弹性计算
+from pfc_advanced import PFCAdvancedAnalysis  # Advanced features / 高级功能
 
 
 class PurePFCSolver(
@@ -43,7 +44,8 @@ class PurePFCSolver(
     PFCAnalysis,
     PFCPlot,
     PFCIO,
-    PFCElastic
+    PFCElastic,
+    PFCAdvancedAnalysis
 ):
     """
     Pure material Phase Field Crystal solver.
@@ -60,6 +62,7 @@ class PurePFCSolver(
     - PFCPlot: Visualization methods / 可视化方法
     - PFCIO: Video recording and output / 视频录制和输出
     - PFCElastic: Elastic property calculations / 弹性性质计算
+    - PFCAdvancedAnalysis: Mode approximation, elastic theory, vacancy / 高级分析：模式近似、弹性理论、空位扩散
     
     Supported lattice types / 支持的晶格类型:
         - "hexagon": Hexagonal (triangular) lattice / 六角（三角）晶格

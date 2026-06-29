@@ -41,6 +41,7 @@ class ModeApproximation:
     def __init__(self):
         self.solutions = {}
         
+    # 1D Plane Wave
     # ==================== 1D 平面波 ====================
     
     def solve_1d(self, r: float, n0_guess: float = -0.2,
@@ -66,17 +67,21 @@ class ModeApproximation:
             if abs(A) < 1e-10:
                 return [1e10, 1e10]
             
+            # Optimal wave vector q = 1/sqrt(2) for standard PFC operator
             # 最优波矢 q = 1/sqrt(2) 对于标准PFC算符
             q = 1.0 / np.sqrt(2.0)
             
+            # Partial derivatives of free energy w.r.t. n0 and A = 0
             # 自由能对n0和A的偏导 = 0
             # F = (r/2)*n0^2 + (u/4)*n0^4 + 3*(r+1)*A^2 + 9*u*A^4 + 6*u*n0^2*A^2
+            # Simplified: Standard PFC free energy density
             # 简化：标准PFC自由能密度
             u = 1.0  # 标准值
             
             # dF/dn0 = 0
             eq1 = r * n0 + u * n0**3 + 6 * u * n0 * A**2
             
+            # dF/dA = 0 (considering single-mode approximation)
             # dF/dA = 0 (考虑一模式近似)
             # 有效r: r_eff = r + (1-q^2)^2 = r (当q=1时)
             # 但标准PFC中 q_m = 1/sqrt(2) 对应峰值
@@ -91,16 +96,20 @@ class ModeApproximation:
         
         n0, A = sol[0]
         
+        # Compute free energy
         # 计算自由能
         q = 1.0 / np.sqrt(2.0)
         F = self._free_energy_1d(n0, A, r)
         
+        # [EN] 化学势
         # 化学势
         mu = self._chemical_potential_1d(n0, A, r)
         
+        # Grand potential
         # 巨势
         G = F - mu * n0
         
+        # Stability check
         # 稳定性检查
         stable = self._check_stability_1d(n0, A, r)
         
@@ -114,6 +123,7 @@ class ModeApproximation:
         """1D自由能密度"""
         q = 1.0 / np.sqrt(2.0)
         r_eff = r + (1 - 2*q**2)**2
+        # Free energy = liquid part + solid correction
         # 自由能 = 液体部分 + 固体修正
         F_liquid = 0.5 * r * n0**2 + 0.25 * u * n0**4
         F_solid = 3 * r_eff * A**2 + 9 * u * A**4 + 6 * u * n0**2 * A**2
@@ -137,6 +147,7 @@ class ModeApproximation:
         det = H11 * H22 - H12**2
         return H11 > 0 and det > 0
     
+    # 2D Triangular Lattice
     # ==================== 2D 三角晶格 ====================
     
     def solve_triangular(self, r: float, n0_guess: float = -0.2,
@@ -154,6 +165,7 @@ class ModeApproximation:
         r : float
             控制参数
         """
+        # But in standard PFC, q_m = 1/sqrt(2) corresponds to peak
         # 标准PFC中峰值位置 q_m = 1/sqrt(2)
         q_m = 1.0 / np.sqrt(2.0)
         
@@ -163,29 +175,36 @@ class ModeApproximation:
             
             u = 1.0
             
+            # Liquid part
             # 液体部分
             F_liquid = 0.5 * r * n0**2 + 0.25 * u * n0**4
             
+            # Solid part (3 pairs of reciprocal lattice vectors)
             # 固体部分（3对倒格矢）
             # 每个模式的能量贡献
             r_eff = r + (1 - q_m**2)**2  # 在q_m处的有效r
             
+            # Linear term: 3 * r_eff * A^2 (3 mode pairs)
             # 线性项: 3 * r_eff * A^2 (3对模式)
             F_linear = 3 * r_eff * A**2
             
+            # Self-interaction in quartic term
             # 四次项中的自相互作用
             # 来自 (phi^4) 展开，考虑umklapp过程
             # 3对模式产生特定的角向依赖
             F_quartic_self = 45 * u * A**4  # 自相互作用
             
+            # Coupling with n0
             # 与n0的耦合
             F_coupling = 18 * u * n0**2 * A**2
             
+            # Umklapp term (triangular lattice special)
             # umklapp项（三角晶格特殊）
             # k1 + k2 + k3 = 0 的共振
             F_umklapp = 2 * u * A**3 * n0  # 三模式耦合（如果存在）
             # 实际上标准PFC中主要是4次项
             
+            # Correct umklapp: 6A^4 term from phi^4
             # 正确的umklapp: 来自phi^4的6A^4项
             # 对于三角晶格，有特定的几何因子
             F_total = F_liquid + F_linear + F_quartic_self + F_coupling
@@ -213,18 +232,23 @@ class ModeApproximation:
         n0, A = sol[0]
         A = abs(A)
         
+        # Compute lattice constant
         # 计算晶格常数
         a_tri = 4.0 * np.pi / (np.sqrt(3.0) * q_m)
         
+        # [EN] 自由能
         # 自由能
         F = free_energy_triangular([n0, A])
         
+        # [EN] 化学势
         # 化学势
         mu = r * n0 + n0**3 + 18 * n0 * A**2
         
+        # Grand potential
         # 巨势
         G = F - mu * n0
         
+        # [EN] 稳定性
         # 稳定性
         stable = self._check_stability_triangular(n0, A, r)
         
@@ -247,6 +271,7 @@ class ModeApproximation:
         det = H11 * H22 - H12**2
         return H11 > 0 and det > 0
     
+    # 3D BCC Lattice
     # ==================== 3D BCC晶格 ====================
     
     def solve_bcc(self, r: float, n0_guess: float = -0.2,
@@ -275,10 +300,12 @@ class ModeApproximation:
             r_eff = r + (1 - q_m**2)**2
             
             # dF/dn0 = 0
+            # 6 mode pairs, each coupled with n0
             # 6对模式，每对与n0耦合
             eq1 = r * n0 + u * n0**3 + 36 * u * n0 * A**2
             
             # dF/dA = 0
+            # 6 mode pairs, complex umklapp terms
             # 6对模式，复杂的umklapp项
             eq2 = 12 * r_eff * A + 1260 * u * A**3 + 72 * u * n0**2 * A
             
@@ -288,18 +315,23 @@ class ModeApproximation:
         n0, A = sol[0]
         A = abs(A)
         
+        # BCC lattice constant
         # BCC晶格常数
         a_bcc = 2.0 * np.pi * np.sqrt(2.0) / q_m
         
+        # [EN] 自由能
         # 自由能
         F = self._free_energy_bcc(n0, A, r)
         
+        # [EN] 化学势
         # 化学势
         mu = r * n0 + n0**3 + 36 * n0 * A**2
         
+        # Grand potential
         # 巨势
         G = F - mu * n0
         
+        # [EN] 稳定性
         # 稳定性
         stable = self._check_stability_bcc(n0, A, r)
         
@@ -334,6 +366,7 @@ class ModeApproximation:
         det = H11 * H22 - H12**2
         return H11 > 0 and det > 0
     
+    # Phase Stability Comparison
     # ==================== 相稳定性比较 ====================
     
     def compare_lattices(self, r_range: Tuple[float, float], 
@@ -364,9 +397,11 @@ class ModeApproximation:
         }
         
         for r in r_values:
+            # Liquid reference state
             # 液体参考态
             G_liquid = 0.0  # 参考点
             
+            # Solutions for each lattice
             # 各晶格解
             try:
                 sol_1d = self.solve_1d(r)
@@ -391,6 +426,7 @@ class ModeApproximation:
             results['G_triangular'].append(G_tri)
             results['G_bcc'].append(G_bcc)
             
+            # Determine most stable
             # 确定最稳定的
             G_values = {'liquid': G_liquid, '1D': G_1d, 
                        'triangular': G_tri, 'BCC': G_bcc}
@@ -416,6 +452,7 @@ class ModeApproximation:
         
         for i in range(len(r_vals)-1):
             if lattices[i] != lattices[i+1]:
+                # Find phase transition point
                 # 找到相变点
                 r_cross = (r_vals[i] + r_vals[i+1]) / 2
                 boundaries.append({
@@ -427,11 +464,13 @@ class ModeApproximation:
         return boundaries
 
 
+# Usage Example
 # ==================== 使用示例 ====================
 
 if __name__ == "__main__":
     solver = ModeApproximation()
     
+    # Solve BCC lattice
     # 求解BCC晶格
     print("=" * 50)
     print("BCC晶格解 (r = -0.5)")
@@ -444,6 +483,7 @@ if __name__ == "__main__":
     print(f"巨势 G = {bcc.G:.6f}")
     print(f"稳定性: {bcc.stable}")
     
+    # Solve triangular lattice
     # 求解三角晶格
     print("\n" + "=" * 50)
     print("三角晶格解 (r = -0.5)")
@@ -456,12 +496,14 @@ if __name__ == "__main__":
     print(f"巨势 G = {tri.G:.6f}")
     print(f"稳定性: {tri.stable}")
     
+    # Compare different lattices
     # 比较不同晶格
     print("\n" + "=" * 50)
     print("相稳定性比较 (r ∈ [-1, 0])")
     print("=" * 50)
     comparison = solver.compare_lattices((-1.0, 0.0), num_points=50)
     
+    # Statistics of regions where each phase appears
     # 统计各相出现的区域
     from collections import Counter
     phase_counts = Counter(comparison['stable_lattice'])
@@ -469,6 +511,7 @@ if __name__ == "__main__":
     for phase, count in phase_counts.items():
         print(f"  {phase}: {count/len(comparison['r'])*100:.1f}%")
     
+    # Find phase boundaries (liquid-solid, solid-solid transition points)
     # 寻找相边界
     boundaries = solver.find_phase_boundaries((-1.0, 0.0))
     print(f"\n发现 {len(boundaries)} 个相边界:")

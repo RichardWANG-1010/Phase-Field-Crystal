@@ -71,42 +71,53 @@ class ElasticConstantTheory:
         施加应变后，倒格矢变为 k_j' = (I + epsilon)^{-T} · k_j
         自由能变化给出弹性常数
         """
+        # Get equilibrium solution
         # 获取平衡解
         sol = self.mode_solver.solve_bcc(r)
         n0, A, a = sol.n0, sol.A, sol.a
         
+        # Reciprocal lattice vector magnitude (unstrained)
         # 倒格矢模长（未应变）
         q_m = 2.0 * np.pi * np.sqrt(2.0) / a
         
+        # Standard PFC parameter
         # 标准PFC参数
         u = 1.0
         
+        # Key results from analytical derivation
         # === 解析推导的关键结果 ===
         # 对于BCC，弹性常数与振幅A和晶格常数a相关
         
+        # Bulk modulus (from uniform compression)
         # 体积模量（来自均匀压缩）
         # B = (a^2 / 18) * (d²F/da²)
+        # Under single-mode approximation:
         # 在一模式近似下：
         K = (4.0 / 9.0) * q_m**4 * A**2 * (1 - q_m**2)
         
+        # C11: [100] longitudinal modulus
         # C11: [100]方向纵向模量
         # 来自单轴应变 epsilon_xx
         C11 = (8.0 / 3.0) * q_m**4 * A**2 * (1 - q_m**2) + \
               (16.0 / 3.0) * u * A**4
         
+        # Poisson coupling
         # C12: 泊松耦合
         C12 = (4.0 / 3.0) * q_m**4 * A**2 * (1 - q_m**2) - \
               (8.0 / 3.0) * u * A**4
         
+        # [EN] C44: [100]方向剪切模量
         # C44: [100]方向剪切模量
         # 注意：BCC的C44在一模式近似下可能为负（不稳定）
         # 这是已知的一模式近似缺陷
         C44 = (2.0 / 3.0) * q_m**4 * A**2 * (1 - q_m**2) - \
               (8.0 / 3.0) * u * A**4
         
+        # Correction: Use more precise formula (considering higher-order contributions)
         # 修正：使用更精确的公式（考虑高阶模式贡献）
         # 或标记C44的不稳定性
         
+        # Compute derived quantities
         # 计算导出量
         bulk_modulus = (C11 + 2*C12) / 3.0
         shear_modulus = (C11 - C12 + 3*C44) / 5.0  # Voigt平均
@@ -134,6 +145,7 @@ class ElasticConstantTheory:
         sol = self.mode_solver.solve_bcc(r)
         n0, A, a0 = sol.n0, sol.A, sol.a
         
+        # Base free energy
         # 基础自由能
         F0 = sol.F
         
@@ -143,11 +155,13 @@ class ElasticConstantTheory:
             
             epsilon: 3x3应变张量
             """
+            # Reciprocal lattice vectors after strain
             # 应变后的倒格矢
             # k' = (I + e)^{-T} · k
             I = np.eye(3)
             F_mat = I + epsilon
             
+            # BCC reciprocal lattice vectors (12 nearest neighbors)
             # BCC倒格矢（12个最近邻）
             k_vectors = np.array([
                 [1, 1, 0], [1, -1, 0], [-1, 1, 0], [-1, -1, 0],
@@ -158,17 +172,20 @@ class ElasticConstantTheory:
             k_strained = np.linalg.inv(F_mat.T) @ k_vectors.T
             k_mags = np.linalg.norm(k_strained, axis=0)
             
+            # Compute free energy under strain (simplified)
             # 计算应变后的自由能（简化）
             # 实际应使用完整的PFC自由能泛函
             q_m = 1.0 / np.sqrt(2.0)
             r_eff = r + np.mean((1 - k_mags**2)**2)
             
+            # Simplified calculation (illustrative only)
             # 简化计算（仅示意）
             F_strained = 0.5 * r * n0**2 + 0.25 * n0**4 + \
                         6 * r_eff * A**2 + 315 * A**4 + 36 * n0**2 * A**2
             
             return F_strained
         
+        # Apply 6 independent strains to compute second derivatives
         # 施加6种独立应变计算二阶导
         # epsilon_1 = [e, 0, 0; 0, 0, 0; 0, 0, 0] -> C11
         e = strain_magnitude
@@ -180,6 +197,7 @@ class ElasticConstantTheory:
         eps5 = np.array([[0, 0, e/2], [0, 0, 0], [e/2, 0, 0]])
         eps6 = np.array([[0, 0, 0], [0, 0, e/2], [0, e/2, 0]])
         
+        # Numerical second derivative
         # 数值二阶导
         F1p = energy_under_strain(+eps1)
         F1m = energy_under_strain(-eps1)
@@ -189,6 +207,7 @@ class ElasticConstantTheory:
         C11 = (F1p + F1m - 2*F0) / (e**2)
         C22 = (F2p + F2m - 2*F0) / (e**2)
         
+        # Cross term C12
         # 交叉项 C12
         eps12 = np.diag([e, e, 0])
         F12 = energy_under_strain(eps12)
@@ -199,6 +218,7 @@ class ElasticConstantTheory:
         F4m = energy_under_strain(-eps4)
         C44 = (F4p + F4m - 2*F0) / (e**2) * 2  # 因子2来自剪切定义
         
+        # Compute derived quantities
         # 计算导出量
         bulk_modulus = (C11 + 2*C12) / 3.0
         shear_modulus = (C11 - C12 + 3*C44) / 5.0
@@ -228,15 +248,18 @@ class ElasticConstantTheory:
         q_m = 4.0 * np.pi / (np.sqrt(3.0) * a)
         u = 1.0
         
+        # 2D triangular lattice elastic constants
         # 2D三角晶格的弹性常数
         C11 = 3.0 * q_m**4 * A**2 * (1 - q_m**2) + 12.0 * u * A**4
         C12 = 1.5 * q_m**4 * A**2 * (1 - q_m**2) - 6.0 * u * A**4
         C66 = 0.75 * q_m**4 * A**2 * (1 - q_m**2) + 3.0 * u * A**4
         
+        # Lamé constants
         # Lamé常数
         lambda_lame = C12
         mu_lame = C66
         
+        # 2D bulk modulus
         # 2D体积模量
         K_2d = (C11 + C12) / 2.0
         
@@ -274,9 +297,11 @@ class ElasticConstantTheory:
         -------
         dict : 对比结果
         """
+        # Analytical results
         # 解析结果
         analytical = self.compute_bcc_elastic(r, method='analytical')
         
+        # Numerical results (from your solver)
         # 数值结果（从你的solver计算）
         # numerical = numerical_solver.compute_elastic_constants(r)
         
@@ -296,6 +321,7 @@ class ElasticConstantTheory:
         """
         A_zener = 2.0 * elastic.C44 / (elastic.C11 - elastic.C12)
         
+        # Other anisotropy measures can be added here
         # 其他各向异性指标
         return {
             'zener_factor': A_zener,
@@ -305,6 +331,7 @@ class ElasticConstantTheory:
         }
 
 
+# Usage Example
 # ==================== 使用示例 ====================
 
 if __name__ == "__main__":
@@ -323,15 +350,18 @@ if __name__ == "__main__":
     print(f"杨氏模量 E = {elastic.youngs_modulus:.4f}")
     print(f"泊松比 nu = {elastic.poisson_ratio:.4f}")
     
+    # Check Cauchy relation
     # 检查Cauchy关系
     deviation = theory.cauchy_relation_check(elastic)
     print(f"\nCauchy关系偏差: {deviation:.4f}")
     
+    # Analyze anisotropy
     # 各向异性
     aniso = theory.elastic_anisotropy(elastic)
     print(f"\nZener各向异性因子: {aniso['zener_factor']:.4f}")
     print(f"分类: {aniso['classification']}")
     
+    # 2d Triangular lattice elastic constants
     # 2D三角晶格
     print("\n" + "=" * 60)
     print("2D三角晶格弹性常数 (r = -0.5)")

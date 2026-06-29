@@ -68,7 +68,7 @@ def main():
     
     # Create PurePFCSolver with user-specified parameters
     # 使用用户指定的参数创建PurePFCSolver
-    # **params["solver"] unpacks all solver keyword arguments
+    # **params['solver'] unpacks all solver keyword arguments
     # **params["solver"]解包所有求解器关键字参数
     solver = PurePFCSolver(
         **params["solver"],
@@ -80,9 +80,10 @@ def main():
     # 步骤3：运行模拟
     # ============================================================
     
-    # Run the main simulation loop
+    # Main simulation loop
     # 运行主模拟循环
     solver.run()
+    solver.run_with_advanced_analysis(analysis_interval=200, vacancy_interval=50, elastic_interval=300)
     
     # ============================================================
     # Step 4: Post-processing analysis
@@ -105,6 +106,35 @@ def main():
     # Includes local/global order metrics and orientation plots
     # 包括局部/全局有序度指标和取向图
     solver.analyze_psi6()
+
+# ============================================================
+# Step 6: Vacancy visualization
+# 步骤6：空位可视化
+# ============================================================
+
+# Get final density field
+# 获取最终的密度场
+    final_phi = solver.phi
+
+    # Use vacancy_analyzer to detect and visualize vacancies
+    # 使用 vacancy_analyzer 检测并可视化空位
+    vacancies = solver.vacancy_analyzer.find_vacancies(final_phi)
+    print(f"\nFinal vacancy count: {len(vacancies)}")
+
+    # Save as image file (no popup display needed)
+    # 保存为图片文件（不依赖弹窗显示）
+    solver.vacancy_analyzer.visualize_vacancy(final_phi, vacancies, save_path="vacancy_final.png")
+    print("Vacancy visualization saved to vacancy_final.png")
+
+    # If history exists, generate diffusion animation
+    # 如果有历史记录，生成扩散动画
+    if hasattr(solver, '_phi_history') and len(solver._phi_history) > 1:
+        solver.vacancy_analyzer.animate_diffusion(
+            solver._phi_history, 
+            interval=100, 
+            save_path="vacancy_diffusion.gif"
+        )
+        print("Vacancy diffusion animation saved to vacancy_diffusion.gif")
 
 
 # ============================================================
