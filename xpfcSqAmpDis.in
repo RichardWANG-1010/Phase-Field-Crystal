@@ -1,0 +1,15 @@
+a02							:: run name
+1024 1024						:: grid points in x, grid points in y
+1.0 0.25 1.					:: lattice spacing,grid spacing dx, time step dt	
+1000001 4000					:: iterations for simulation (totalTime), print frequency (printFreq)
+10000						:: print frequency for all ampplitudes for restart purposes (printFreqAmp)
+0. 1.						:: element Sq - magnitude k0 mode (HSq0), width k0 mode (wSq0)
+1. 1.414213562373095		:: element Sq - width 1st peak  (wSq1), width 2nd peak  (wSq2)
+.2026423672846756 0.1013211836423378		:: eff transition temp 1st peak (sigMSq1), 2nd peak (sigMSq2)
+.0 0.55							:: initial temperature (iSig), supersaturation (omega)
+-.18 -.01371257018 -.2190294734		:: average density (navg), eqm solid and liquid density (ns,nl)
+1.4 1.						:: -n^3/6 coeff (eta), n^4/12 coeff (chi)
+1. 1. 1.					:: mobilites, dens (Mno), ampA (Ma), ampB (Mb)
+0.							:: noise amplitude for system (nAmp)
+0 0							:: restartFlag (set to 1 for restart), restart time (restartTime)
+0.3                         :: dislNoiseAmp (set to 0 for close)
